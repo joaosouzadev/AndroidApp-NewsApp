@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="120dp"
     android:orientation="horizontal"
-    android:padding="16dp">
+    android:padding="15dp">
 
     <ImageView
         android:id="@+id/news_image"
@@ -26,20 +26,21 @@
             android:id="@+id/news_category"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxLines="2"
             android:textColor="@android:color/black"
             android:textSize="10sp"
+            android:maxLines="1"
             android:textAllCaps="true"
-            android:layout_marginBottom="4dp"
+            android:textStyle="bold"
             tools:text="Economy" />
 
         <TextView
-            android:id="@+id/news_title"
+            android:id="@+id/newsTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:maxLines="3"
             android:textColor="@android:color/black"
-            android:textSize="12sp"
+            android:textSize="14sp"
+            android:ellipsize="end"
             tools:text="Why BitCoin is a bubble and you should think twice before investing." />
 
             <RelativeLayout

@@ -1,5 +1,7 @@
 package com.example.android.newsapp;
 
+import android.app.Activity;
+import android.app.MediaRouteButton;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -15,20 +17,17 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.io.InputStream;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
 
-/**
- * Created by JOAO on 25-Apr-18.
- */
-
 public class NewsAdapter extends ArrayAdapter<News> {
 
     public static final String LOG_TAG = MainActivity.class.getName();
 
-    public NewsAdapter(@NonNull Context context, ArrayList<News> news) {
+    public NewsAdapter(Context context, ArrayList<News> news) {
         super(context, 0, news);
     }
 
@@ -36,27 +35,35 @@ public class NewsAdapter extends ArrayAdapter<News> {
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         View listItemView = convertView;
-        if(listItemView == null){
+        if (listItemView == null) {
             listItemView = LayoutInflater.from(getContext()).inflate(
-                    R.layout.activity_main, parent, false);
+                    R.layout.news_list_item, parent, false);
         }
 
+        // Get the {@link NewsClass} object located at this position in the list
         News currentNews = getItem(position);
 
-        TextView tv_title = (TextView) listItemView.findViewById(R.id.news_title);
-        tv_title.setText(currentNews.getTitle());
+        TextView newsTitleTextView = listItemView.findViewById(R.id.newsTitle);
+        newsTitleTextView.setText(currentNews.getTitle());
 
-        TextView tv_author = (TextView) listItemView.findViewById(R.id.news_author);
-        tv_author.setText(currentNews.getAuthor());
+        TextView newsCategoryTextView = listItemView.findViewById(R.id.news_category);
+        newsCategoryTextView.setText(currentNews.getCategory());
 
-        TextView tv_category = (TextView) listItemView.findViewById(R.id.news_category);
-        tv_category.setText(currentNews.getTitle());
+        TextView newsAuthorTextView = listItemView.findViewById(R.id.news_author);
+        newsAuthorTextView.setText(currentNews.getAuthor());
 
-        Date dateObject = new Date(currentNews.getDate());
+        TextView newsDateTextView = listItemView.findViewById(R.id.news_date);
 
-        TextView tv_date = (TextView) listItemView.findViewById(R.id.news_date);
-        String formattedDate = formatDate(dateObject);
-        tv_date.setText(formattedDate);
+        SimpleDateFormat dateFormatJSON = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH);
+        SimpleDateFormat dateFormatFinal = new SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH);
+
+        try {
+            Date dateNews = dateFormatJSON.parse(currentNews.getDate());
+            String date = dateFormatFinal.format(dateNews);
+            newsDateTextView.setText(date);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
 
         ImageView imageView = (ImageView) listItemView.findViewById(R.id.news_image);
         new newsImageAsyncTask(imageView).execute(currentNews.getImageUrl());
@@ -64,23 +71,20 @@ public class NewsAdapter extends ArrayAdapter<News> {
         return listItemView;
     }
 
-    private String formatDate(Date dateObject){
-        SimpleDateFormat dateFormat = new SimpleDateFormat("EE dd MMM yyyy", Locale.ENGLISH);
-        return dateFormat.format(dateObject);
-    }
-
-
     // inner class to download image and return it
     private class newsImageAsyncTask extends AsyncTask<String, Void, Bitmap> {
         ImageView image;
 
+
         public newsImageAsyncTask(ImageView btmpImage) {
             this.image = btmpImage;
+
         }
 
-        protected Bitmap doInBackground(String... urls){
+        protected Bitmap doInBackground(String... urls) {
             String url = urls[0];
             Bitmap image = null;
+
             try {
                 InputStream in = new java.net.URL(url).openStream();
                 image = BitmapFactory.decodeStream(in); // decode the InputStream to image

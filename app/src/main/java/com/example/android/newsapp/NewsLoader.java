@@ -12,7 +12,9 @@ import java.util.List;
 
 public class NewsLoader extends AsyncTaskLoader<List<News>> {
 
-    /** Query URL */
+    /**
+     * Query URL
+     */
     private String mUrl;
 
     public NewsLoader(Context context, String requestUrl) {
@@ -35,7 +37,12 @@ public class NewsLoader extends AsyncTaskLoader<List<News>> {
         }
 
         // Perform the network request, parse the response, and extract a list of earthquakes.
-        List<News> news = QueryUtils.fetchEarthquakeData(mUrl);
-        return news;
+        List<News> News = null;
+        try {
+            News = QueryUtils.fetchNewsData(mUrl);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return News;
     }
 }

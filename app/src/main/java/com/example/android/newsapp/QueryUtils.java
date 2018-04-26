@@ -7,6 +7,14 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +29,8 @@ class QueryUtils {
     private static final String LOG_TAG = QueryUtils.class.getSimpleName();
 
     // Keys used for the JSON response
+    public static final int ZERO = 0;
+
     private static final String response = "response";
 
     private static final String results = "results";
@@ -37,7 +47,9 @@ class QueryUtils {
 
     private static final String author = "webTitle";
 
-    private static final String image = "image";
+    private static final String image = "thumbnail";
+
+    private static final String fields = "fields";
 
     /**
      * Create a private constructor because no one should ever create a {@link QueryUtils} object.
@@ -66,13 +78,8 @@ class QueryUtils {
         // To avoid app is crashed error message is printed into logs.
 
         try {
-            // Create a JSONObject from the JSON response string
             JSONObject baseJsonNewsResponse = new JSONObject(newsJSON);
-
-            // Extract the JSONObject associated with the key called "response",
             JSONObject responseJsonNews = baseJsonNewsResponse.getJSONObject(response);
-
-            // Extract the JSONArray associated with the key called "results"
             JSONArray newsArray = responseJsonNews.getJSONArray(results);
 
             // For each news in the JsonNewsArray create an {@link News} object
@@ -81,60 +88,160 @@ class QueryUtils {
                 // Get a single news article at position i within the list of news
                 JSONObject currentNews = newsArray.getJSONObject(i);
 
-                // Extract the section name for the key called "sectionName"
                 String newsSection = currentNews.getString(section);
 
-                // Check if newsDate exist and than extract the date for the key called "webPublicationDate"
-                String newsDate = "Date not available";
+                String newsDate = currentNews.getString(date);
 
-                if (currentNews.has(date)) {
-                    newsDate = currentNews.getString(date);
-                }
-
-                // Extract the article name for the key called "webTitle"
                 String newsTitle = currentNews.getString(title);
 
-                // Extract the value for the key called "webUrl"
                 String newsUrl = currentNews.getString(url);
 
-                // Extract the image
-                String newsImage = currentNews.getString(image);
+                String newsImage = currentNews.getJSONObject(fields).getString(image);
 
-                //Extract the JSONArray associated with the key called "tags",
+                //String newsAuthor = currentNews.getJSONObject(tags).getString("webTitle");
+
                 JSONArray currentNewsAuthorArray = currentNews.getJSONArray(tags);
-
-                String newsAuthor = "Author not available";
-
+                String newsAuthor = "";
                 //Check if "tags" array contains data
                 int tagsLenght = currentNewsAuthorArray.length();
-
-
                 if (tagsLenght == 1) {
                     // Create a JSONObject for author
                     JSONObject currentNewsAuthor = currentNewsAuthorArray.getJSONObject(0);
-
                     String newsAuthor1 = currentNewsAuthor.getString(author);
-
                     newsAuthor = newsAuthor1;
-
                 }
 
-                // Create a new News object with the title, category, author, date, url ,
-                // from the JSON response.
-                News newNews = new News(newsTitle, newsSection, newsAuthor, newsDate, newsUrl, newsImage);
-
                 // Add the new {@link News} to the list of News.
-                newsList.add(newNews);
+                newsList.add(new News(newsTitle, newsAuthor, newsSection, newsDate, newsUrl, newsImage));
             }
 
         } catch (JSONException e) {
             // If an error is thrown when executing any of the above statements in the "try" block,
             // catch the exception here, so the app doesn't crash. Print a log message
             // with the message from the exception.
-            Log.e("QueryUtils", "JSON results parsing problem.");
+            Log.e("NewsUtils", "JSON results parsing problem.");
         }
 
         // Return the list of earthquakes
         return newsList;
     }
+
+    public static List<News> fetchNewsData(String requestUrl) throws InterruptedException {
+
+        // Create URL object
+        URL url = returnUrl(requestUrl);
+
+        // Perform HTTP request to URL and receive a JSON response
+        String jsonResponse = null;
+        try {
+            // Try to create a HTTP request with the request URL by makeHttpRequest
+            jsonResponse = makeHttpRequest(url);
+
+        } catch (IOException e) {
+            // In case that request failed, print the error message into log
+            Log.e(LOG_TAG, "HTTP request failed.", e);
+        }
+
+        // Extract relevant fields from the JSON response and create a list of News
+        List<News> news = extractFeatureFromJson(jsonResponse);
+
+        // Return the list of news
+        return news;
+    }
+
+    // Return new URL object from the given string URL.
+    private static URL returnUrl(String stringUrl) {
+        URL url = null;
+        try {
+            // Try to create an URL from String
+            url = new URL(stringUrl);
+
+        } catch (MalformedURLException e) {
+
+            // In case that request failed, print the error message into log
+            Log.e(LOG_TAG, "URL building problem.", e);
+        }
+        return url;
+    }
+
+    // Make an HTTP request to the given URL and return a String as the response.
+    private static String makeHttpRequest(URL url) throws IOException {
+
+        String jsonResponse = "";
+
+        // If the URL is null then return early.
+        if (url == null) {
+            return jsonResponse;
+        }
+
+        // Initialize variables for the HTTP connection and for the InputStream
+        HttpURLConnection urlConnection = null;
+        InputStream inputStream = null;
+        try {
+            // Try to establish a HTTP connection with the request URL and set up the properties of the request
+            urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.setReadTimeout(10000 /* milliseconds */);
+            urlConnection.setConnectTimeout(15000 /* milliseconds */);
+            urlConnection.setRequestMethod("GET");
+
+            // Send a request to connect
+            urlConnection.connect();
+
+            // If the request was successful, then read the Input Stream and parse the response.
+            if (urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                inputStream = urlConnection.getInputStream();
+                jsonResponse = readFromStream(inputStream);
+            } else {
+                // If the response failed, print it to the Log
+                Log.e(LOG_TAG, "Error response code: " + urlConnection.getResponseCode());
+            }
+        } catch (IOException e) {
+
+            // If the connection was not established, print it to the log
+            Log.e(LOG_TAG, "Connection was not established. Problem retrieving JSON News results.", e);
+        } finally {
+
+            // Disconnect the HTTP connection if it is not disconnected yet
+            if (urlConnection != null) {
+                urlConnection.disconnect();
+            }
+
+            // Close the Input Stream if it is not closed yet
+            if (inputStream != null) {
+                // Closing the input stream could throw an IOException, which is why
+                // the makeHttpRequest(URL url) method signature specifies than an IOException
+                // could be thrown.
+                inputStream.close();
+            }
+        }
+        return jsonResponse;
+    }
+
+    /*
+    / Convert the InputStream into a String which contains the whole JSON response from the server.
+    */
+
+    private static String readFromStream(InputStream inputStream) throws IOException {
+
+        // Create a new StringBuilder
+        StringBuilder output = new StringBuilder();
+
+        // If the InputStream exists, create an InputStreamReader from it and a BufferedReader from the InputStreamReader
+        if (inputStream != null) {
+            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, Charset.forName("UTF-8"));
+            BufferedReader reader = new BufferedReader(inputStreamReader);
+
+            // Append the data of the BufferedReader line by line to the StringBuilder
+            String line = reader.readLine();
+            while (line != null) {
+                output.append(line);
+                line = reader.readLine();
+            }
+        }
+
+        // Convert the output into String and return it
+        return output.toString();
+    }
+
+    // TODO: IMPLEMENTAR METODOS
 }
